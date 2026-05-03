@@ -230,7 +230,7 @@ After `npm run seed`, the following accounts are available for local development
 
 | Role    | Email                                            | Password      |
 | ------- | ------------------------------------------------ | ------------- |
-| Admin   | `admin@skillbridge.dev`                          | `Admin@12345` |
+| Admin   | `admin@skillbridge.com`                          | `admin123` |
 | Student | `student@skillbridge.dev`                        | `Student@123` |
 | Tutor   | `tutor1@skillbridge.dev` … `tutor6@skillbridge.dev` | `Tutor@123`   |
 
