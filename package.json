@@ -1,6 +1,5 @@
 {
   "name": "skillbridge-backend",
-  "author": "Afif Ahmed",
   "version": "0.1.0",
   "private": true,
   "description": "SkillBridge backend — Express 5 + Prisma 6 + PostgreSQL.",
