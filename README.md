@@ -1,78 +1,286 @@
-# skillbridge-backend
+# SkillBridge — Backend
 
-Express 5 + Prisma 6 + PostgreSQL API for SkillBridge.
+A production-ready REST API powering the SkillBridge tutor-marketplace platform. Built on **Express 5**, **Prisma 6**, **PostgreSQL**, and **TypeScript**, with JWT cookie auth, role-based access control, and Zod-validated contracts.
 
-## Quick start
+---
+
+## Table of Contents
+
+- [Overview](#overview)
+- [Tech Stack](#tech-stack)
+- [Architecture](#architecture)
+- [Getting Started](#getting-started)
+- [Environment Variables](#environment-variables)
+- [Database](#database)
+- [API Reference](#api-reference)
+- [Authentication & Authorization](#authentication--authorization)
+- [Scripts](#scripts)
+- [Project Structure](#project-structure)
+- [Seed Credentials](#seed-credentials)
+- [Deployment](#deployment)
+- [Troubleshooting](#troubleshooting)
+
+---
+
+## Overview
+
+SkillBridge connects students with tutors across configurable skill categories. The backend exposes a versioned JSON API consumed by the Next.js frontend, handling authentication, tutor profiles, weekly availability, bookings, reviews, and admin oversight.
+
+**Key features**
+
+- Role-based access (`STUDENT`, `TUTOR`, `ADMIN`) enforced at the route layer
+- Stateless JWT authentication delivered via `HttpOnly` cookies
+- Strict input validation through Zod schemas on every mutating endpoint
+- Conflict-free booking model — same tutor + same start time is rejected at the DB level
+- Denormalized rating aggregates on `TutorProfile` for fast list/filter queries
+
+---
+
+## Tech Stack
+
+| Layer            | Technology                        |
+| ---------------- | --------------------------------- |
+| Runtime          | Node.js ≥ 22                      |
+| Framework        | Express 5                         |
+| Language         | TypeScript 5 (strict)             |
+| ORM              | Prisma 6                          |
+| Database         | PostgreSQL 16+                    |
+| Auth             | `jsonwebtoken`, `bcrypt`, cookies |
+| Validation       | `zod`                             |
+| Dev tooling      | `tsx` (watch mode), `prisma`      |
+
+---
+
+## Architecture
+
+The codebase follows a **modular, feature-first** layout. Each domain lives under `src/modules/<feature>/` and ships its own routes, controller, service, and validation schema. Cross-cutting concerns (auth middleware, error handler, env loader) live in `src/middleware/`, `src/config/`, and `src/utils/`.
+
+```
+HTTP request
+   ↓ Express router (routes/index.ts)
+   ↓ Module router (modules/<feature>/<feature>.routes.ts)
+   ↓ auth + role middleware
+   ↓ Zod validation
+   ↓ Controller → Service → Prisma
+   ↓ JSON response { success, data }
+```
+
+All responses follow a uniform envelope:
+
+```jsonc
+{ "success": true,  "data": { ... } }
+{ "success": false, "error": { "code": "...", "message": "..." } }
+```
+
+---
+
+## Getting Started
+
+### Prerequisites
+
+- Node.js **22+**
+- PostgreSQL **16+** running locally or a hosted instance (Neon, Supabase, Render Postgres)
+- npm 10+
+
+### Installation
 
 ```bash
 npm install
-cp .env.example .env        # then fill in DATABASE_URL, JWT_SECRET, etc.
-npm run prisma:migrate      # create the dev database
-npm run seed                # admin + categories + demo tutors
-npm run dev                 # http://localhost:4000
+cp .env.example .env          # then edit DATABASE_URL, JWT_SECRET, FRONTEND_URL
+npm run prisma:migrate        # apply schema and create the dev database
+npm run seed                  # admin + categories + 6 demo tutors + 1 student
+npm run dev                   # → http://localhost:4000
 ```
+
+A successful boot logs:
+
+```
+[server] listening on http://localhost:4000
+[server] env=development
+```
+
+Health check: `GET http://localhost:4000/api/health` → `{ "success": true, "data": { "ok": true } }`
+
+---
 
 ## Environment Variables
 
-See `.env` — required variables:
+Defined in `.env` (see `.env.example` for a template):
 
-| Variable | Description | Example |
-|---|---|---|
-| `NODE_ENV` | Environment mode | `development` or `production` |
-| `PORT` | Server port | `4000` |
-| `DATABASE_URL` | PostgreSQL connection | `postgresql://user:pass@host:5432/skillbridge` |
-| `JWT_SECRET` | 64-char random secret for token signing | (auto-generated in `.env`) |
-| `JWT_EXPIRES_IN` | Token expiration | `7d` |
-| `FRONTEND_URL` | Frontend origin (CORS) | `http://localhost:3000` |
-| `COOKIE_DOMAIN` | Cookie domain (leave empty in dev) | (empty in dev, set in prod if needed) |
+| Variable         | Required | Description                                          | Example                                            |
+| ---------------- | :------: | ---------------------------------------------------- | -------------------------------------------------- |
+| `NODE_ENV`       |    ✓     | Runtime mode                                         | `development` \| `production`                      |
+| `PORT`           |          | HTTP listen port (default `4000`)                    | `4000`                                             |
+| `DATABASE_URL`   |    ✓     | PostgreSQL connection string                         | `postgresql://user:pass@host:5432/skillbridge`     |
+| `JWT_SECRET`     |    ✓     | 64-char random string used to sign tokens            | _(generate with `openssl rand -hex 32`)_           |
+| `JWT_EXPIRES_IN` |          | Token lifetime (default `7d`)                        | `7d`                                               |
+| `FRONTEND_URL`   |    ✓     | Allowed CORS origin                                  | `http://localhost:3000`                            |
+| `COOKIE_DOMAIN`  |          | Cookie domain (leave empty in dev)                   | `.skillbridge.dev`                                 |
 
-## Seed Credentials (§12)
+> **Never commit** `.env`. Rotate `JWT_SECRET` whenever it leaks — all sessions invalidate immediately.
 
-After running `npm run seed`, use these accounts:
+---
 
-| Role | Email | Password | Purpose |
-|---|---|---|---|
-| Admin | `admin@skillbridge.dev` | `Admin@12345` | Platform oversight, ban users, manage categories |
-| Student | `student@skillbridge.dev` | `Student@123` | Browse tutors, book sessions, leave reviews |
-| Tutor | `tutor1@skillbridge.dev` … `tutor6@skillbridge.dev` | `Tutor@123` | Create profiles, set availability, complete sessions |
+## Database
+
+Prisma schema: [`prisma/schema.prisma`](prisma/schema.prisma).
+
+### Domain models
+
+| Model           | Purpose                                                              |
+| --------------- | -------------------------------------------------------------------- |
+| `User`          | Account record; role-discriminated (`STUDENT`, `TUTOR`, `ADMIN`)     |
+| `TutorProfile`  | Public tutor listing with bio, hourly rate, rating aggregates        |
+| `Category`      | Skill taxonomy (slug-keyed)                                          |
+| `TutorCategory` | M:N join between tutors and categories                               |
+| `Availability`  | Recurring weekly windows (`weekday + startMinute + endMinute`)       |
+| `Booking`       | Concrete session — unique on `(tutorProfileId, scheduledAt)`         |
+| `Review`        | One review per booking, 1–5 rating, drives `ratingAvg` / `ratingCount` |
+
+### Migrations
+
+```bash
+npm run prisma:migrate        # dev: create + apply migration, regenerate client
+npm run prisma:deploy         # prod: apply pending migrations only
+npm run prisma:studio         # GUI for local data inspection
+```
+
+---
+
+## API Reference
+
+All endpoints are mounted under `/api`. Routers are wired in [`src/routes/index.ts`](src/routes/index.ts).
+
+| Prefix         | Module    | Description                                         |
+| -------------- | --------- | --------------------------------------------------- |
+| `/auth`        | `auth`    | Register, login, logout, current session            |
+| `/users`       | `user`    | Profile read/update                                 |
+| `/tutors`      | `tutor`   | Public browse, filter, and detail endpoints         |
+| `/tutor`       | `tutor`   | Authenticated tutor self-service (profile, slots)   |
+| `/categories`  | `category`| Public category list; admin-only writes             |
+| `/bookings`    | `booking` | Create, list, cancel, complete                      |
+| `/reviews`     | `review`  | Create review for a completed booking               |
+| `/admin`       | `admin`   | Stats, user moderation, booking oversight           |
+| `/health`      | —         | Liveness probe                                      |
+
+Every mutating endpoint validates its body against a Zod schema; failures return a structured `400` with field-level messages.
+
+---
+
+## Authentication & Authorization
+
+- **Strategy:** JWT signed with `JWT_SECRET`, set as an `HttpOnly` cookie named `sb_token`.
+- **Cookie flags:**
+  - `httpOnly: true` — never readable from JS
+  - `sameSite: 'lax'` in dev, `'none'` + `secure: true` in production
+  - `path: '/'`, optional `domain` from `COOKIE_DOMAIN`
+- **Middleware:**
+  - `requireAuth` — populates `req.user` or rejects with `401`
+  - `requireRole(...roles)` — gates routes by role
+- **Password hashing:** `bcrypt` with cost factor `12`.
+
+---
 
 ## Scripts
 
-| Script | Purpose |
-|---|---|
-| `dev` | tsx watch on `src/server.ts` |
-| `build` | tsc → `dist/` |
-| `start` | run compiled server |
-| `prisma:generate` | regenerate Prisma client |
-| `prisma:migrate` | dev migration |
-| `prisma:deploy` | prod migration |
-| `prisma:studio` | open Prisma Studio |
-| `seed` | run `prisma/seed.ts` |
+| Script              | Purpose                                               |
+| ------------------- | ----------------------------------------------------- |
+| `npm run dev`       | `tsx watch src/server.ts` — hot reload on save        |
+| `npm run build`     | `tsc -p .` → `dist/`                                  |
+| `npm start`         | Run the compiled server (`node dist/server.js`)       |
+| `prisma:generate`   | Regenerate the Prisma client after schema edits       |
+| `prisma:migrate`    | Create + apply a dev migration                        |
+| `prisma:deploy`     | Apply pending migrations (production)                 |
+| `prisma:studio`     | Open Prisma Studio                                    |
+| `npm run seed`      | Run [`prisma/seed.ts`](prisma/seed.ts)                |
 
-## API Endpoints
+---
 
-Base: `http://localhost:4000/api`
+## Project Structure
 
-**Health check:** `GET /health` → `{ ok: true }`
+```
+skillbridge-backend/
+├── prisma/
+│   ├── schema.prisma         # data model
+│   └── seed.ts               # demo data
+├── src/
+│   ├── app.ts                # Express app assembly
+│   ├── server.ts             # entry point
+│   ├── config/               # env loader, prisma client singleton
+│   ├── middleware/           # auth, error handler, request logger
+│   ├── modules/
+│   │   ├── auth/             # routes • controller • service • schemas
+│   │   ├── user/
+│   │   ├── tutor/
+│   │   ├── category/
+│   │   ├── booking/
+│   │   ├── review/
+│   │   └── admin/
+│   ├── routes/index.ts       # router mount table
+│   ├── types/                # shared types
+│   └── utils/                # cookies, http errors, response helpers
+└── tsconfig.json
+```
 
-See [prd.md](../prd.md) for the full spec — schema (§3), auth (§4), and REST contracts (§5).
+---
+
+## Seed Credentials
+
+After `npm run seed`, the following accounts are available for local development:
+
+| Role    | Email                                            | Password      |
+| ------- | ------------------------------------------------ | ------------- |
+| Admin   | `admin@skillbridge.dev`                          | `Admin@12345` |
+| Student | `student@skillbridge.dev`                        | `Student@123` |
+| Tutor   | `tutor1@skillbridge.dev` … `tutor6@skillbridge.dev` | `Tutor@123`   |
+
+> **Demo only.** Never ship these credentials to a public environment.
+
+---
 
 ## Deployment
 
-### Render
-1. Create a new Web Service, connect this repo.
-2. Build command: `npm install && npx prisma migrate deploy && npm run seed && npm run build`
-3. Start command: `npm start`
-4. Environment: Set all variables from `.env` (see table above).
-5. Health check: `GET /health` — Render will use this to confirm boot.
+### Render (recommended)
 
-### Database (Neon / Supabase)
-- Create a PostgreSQL 16+ database.
-- Set `DATABASE_URL` in Render env.
-- Run migrations: `npx prisma migrate deploy`.
-- Run seed once: `npm run seed`.
+1. **New → Web Service**, connect this repository.
+2. **Build command:**
+   ```
+   npm install && npx prisma migrate deploy && npm run build
+   ```
+3. **Start command:** `npm start`
+4. **Environment:** add every variable from the [Environment Variables](#environment-variables) table.
+5. **Health check path:** `/api/health` — Render uses this to confirm boot.
+6. _(One-time)_ Run `npm run seed` from the Render shell to populate demo data.
 
-### CORS / Cookies in Production
-- Set `COOKIE_DOMAIN` if your frontend is on a subdomain.
-- Cookies are `sameSite=none, secure=true` in production (see `src/utils/cookies.ts`).
-- CORS allows single origin (set `FRONTEND_URL` in env).
+### Database (Neon / Supabase / Render Postgres)
+
+- Provision a PostgreSQL **16+** instance.
+- Set `DATABASE_URL` in the Render service environment.
+- Run `npx prisma migrate deploy` on first deploy and after every schema change.
+
+### Production hardening checklist
+
+- [ ] `NODE_ENV=production`
+- [ ] `JWT_SECRET` rotated and stored in the platform's secret manager
+- [ ] `FRONTEND_URL` matches the deployed frontend exactly (single origin CORS)
+- [ ] Cookies issued with `sameSite=none; secure=true`
+- [ ] Database backups / PITR enabled
+- [ ] Health check wired to `/api/health`
+
+---
+
+## Troubleshooting
+
+| Symptom                                            | Likely cause / fix                                                                  |
+| -------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `PrismaClientInitializationError` on boot          | `DATABASE_URL` unset or unreachable — verify connectivity and SSL flag              |
+| `401 Unauthorized` on every authenticated route    | Cookie not sent — confirm frontend uses `credentials: 'include'` and CORS matches   |
+| `P2002` unique constraint on booking creation      | Tutor already has a booking at that exact `scheduledAt` — pick a different slot     |
+| Migration drift between dev and prod               | Run `npx prisma migrate deploy` on prod; never edit applied migrations              |
+| `JsonWebTokenError: invalid signature` after redeploy | `JWT_SECRET` changed — clients must log in again                                  |
+
+---
+
+## License
+
+Private — internal project. All rights reserved.
