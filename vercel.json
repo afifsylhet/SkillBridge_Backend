@@ -1,5 +1,8 @@
 {
+  "buildCommand": "echo 'no static build — Vercel bundles api/ via @vercel/node'",
+  "outputDirectory": "public",
   "rewrites": [
-    { "source": "/(.*)", "destination": "/api" }
+    { "source": "/api/:path*", "destination": "/api" },
+    { "source": "/health", "destination": "/api" }
   ]
 }
