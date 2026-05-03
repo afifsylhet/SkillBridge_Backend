@@ -1,0 +1,155 @@
+// prisma/schema.prisma
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// =========================
+// ENUMS
+// =========================
+enum UserRole {
+  STUDENT
+  TUTOR
+  ADMIN
+}
+
+enum BookingStatus {
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+}
+
+enum Weekday {
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+  SATURDAY
+  SUNDAY
+}
+
+// =========================
+// MODELS
+// =========================
+model User {
+  id            String      @id @default(cuid())
+  email         String      @unique
+  passwordHash  String
+  name          String
+  role          UserRole    @default(STUDENT)
+  avatarUrl     String?
+  isBanned      Boolean     @default(false)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  tutorProfile  TutorProfile?
+  bookings      Booking[]   @relation("StudentBookings")
+  reviewsGiven  Review[]    @relation("StudentReviews")
+
+  @@index([role])
+}
+
+model TutorProfile {
+  id           String              @id @default(cuid())
+  userId       String              @unique
+  user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bio          String              @db.Text
+  hourlyRate   Int                 // stored as whole units (e.g. USD)
+  experience   Int                 @default(0) // years
+  headline     String?             // e.g. "Senior React Engineer"
+  isPublished  Boolean             @default(false)
+
+  // Aggregates (denormalized for fast list/filter)
+  ratingAvg    Float               @default(0)
+  ratingCount  Int                 @default(0)
+
+  categories   TutorCategory[]
+  availability Availability[]
+  bookings     Booking[]           @relation("TutorBookings")
+  reviews      Review[]            @relation("TutorReviews")
+
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+
+  @@index([hourlyRate])
+  @@index([ratingAvg])
+}
+
+model Category {
+  id        String          @id @default(cuid())
+  name      String          @unique
+  slug      String          @unique
+  iconKey   String?         // optional UI icon name
+  tutors    TutorCategory[]
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+}
+
+// Many-to-many join: a tutor can teach multiple categories.
+model TutorCategory {
+  tutorProfileId String
+  categoryId     String
+  tutorProfile   TutorProfile @relation(fields: [tutorProfileId], references: [id], onDelete: Cascade)
+  category       Category     @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  assignedAt     DateTime     @default(now())
+
+  @@id([tutorProfileId, categoryId])
+  @@index([categoryId])
+}
+
+// Recurring weekly availability windows. The booking layer turns these
+// into concrete date+slot instances.
+model Availability {
+  id             String       @id @default(cuid())
+  tutorProfileId String
+  tutorProfile   TutorProfile @relation(fields: [tutorProfileId], references: [id], onDelete: Cascade)
+  weekday        Weekday
+  startMinute    Int          // minutes from 00:00 (e.g. 540 = 09:00)
+  endMinute      Int          // exclusive upper bound
+  createdAt      DateTime     @default(now())
+
+  @@unique([tutorProfileId, weekday, startMinute])
+  @@index([tutorProfileId, weekday])
+}
+
+model Booking {
+  id             String        @id @default(cuid())
+  studentId      String
+  student        User          @relation("StudentBookings", fields: [studentId], references: [id], onDelete: Cascade)
+  tutorProfileId String
+  tutorProfile   TutorProfile  @relation("TutorBookings", fields: [tutorProfileId], references: [id], onDelete: Cascade)
+  scheduledAt    DateTime      // exact start (UTC)
+  durationMin    Int           @default(60)
+  status         BookingStatus @default(CONFIRMED)
+  notes          String?       @db.Text
+  cancelledAt    DateTime?
+  completedAt    DateTime?
+  review         Review?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@unique([tutorProfileId, scheduledAt]) // no double-booking same start
+  @@index([studentId])
+  @@index([tutorProfileId])
+  @@index([status])
+}
+
+model Review {
+  id              String       @id @default(cuid())
+  bookingId       String       @unique
+  booking         Booking      @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  studentId       String
+  student         User         @relation("StudentReviews", fields: [studentId], references: [id], onDelete: Cascade)
+  tutorProfileId  String
+  tutorProfile    TutorProfile @relation("TutorReviews", fields: [tutorProfileId], references: [id], onDelete: Cascade)
+  rating          Int          // 1..5 (validate at API layer)
+  comment         String       @db.Text
+  createdAt       DateTime     @default(now())
+
+  @@index([tutorProfileId])
+}
