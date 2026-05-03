@@ -2,6 +2,8 @@
 import { z } from 'zod';
 import dotenv from 'dotenv';
 
+// Vercel/Render inject env vars natively; .env is only needed locally.
+// dotenv.config() is a no-op if no .env file exists, so this is safe everywhere.
 dotenv.config();
 
 const EnvSchema = z.object({

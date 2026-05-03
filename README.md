@@ -252,10 +252,34 @@ After `npm run seed`, the following accounts are available for local development
 5. **Health check path:** `/api/health` — Render uses this to confirm boot.
 6. _(One-time)_ Run `npm run seed` from the Render shell to populate demo data.
 
+### Vercel (serverless)
+
+This repo is also deployable to Vercel — [api/index.ts](api/index.ts) wraps the Express app and [vercel.json](vercel.json) rewrites all paths to it.
+
+1. **New Project** → import this repository.
+2. **Root Directory:** `skillbridge-backend`.
+3. **Framework Preset:** _Other_.
+4. **Environment Variables** (Settings → Environment Variables — add for **Production**, **Preview**, and **Development**):
+   - `NODE_ENV` = `production`
+   - `DATABASE_URL` = Postgres connection string (Neon / Supabase / Vercel Postgres)
+   - `JWT_SECRET` = 64-char random string (generate via `openssl rand -hex 32`)
+   - `JWT_EXPIRES_IN` = `7d`
+   - `FRONTEND_URL` = full origin of your deployed frontend (e.g. `https://skillbridge.vercel.app`)
+   - `COOKIE_DOMAIN` = leave empty unless serving across subdomains
+5. **Deploy** — `postinstall` runs `prisma generate` automatically.
+6. **One-time DB migration** — from your local machine, point `DATABASE_URL` at the production database and run:
+   ```bash
+   npx prisma migrate deploy
+   npm run seed
+   ```
+7. **Verify:** `GET https://<your-deployment>.vercel.app/api/health` → `{ "success": true, "data": { "ok": true } }`
+
+> ⚠️ Each cold start spins up a fresh Prisma client. For non-trivial traffic, use a connection pooler (Neon's pooled URL, Supabase's `pgbouncer`, or Prisma Accelerate) in `DATABASE_URL` to avoid exhausting Postgres connections.
+
 ### Database (Neon / Supabase / Render Postgres)
 
 - Provision a PostgreSQL **16+** instance.
-- Set `DATABASE_URL` in the Render service environment.
+- Set `DATABASE_URL` in the platform's environment variables.
 - Run `npx prisma migrate deploy` on first deploy and after every schema change.
 
 ### Production hardening checklist
@@ -278,6 +302,8 @@ After `npm run seed`, the following accounts are available for local development
 | `P2002` unique constraint on booking creation      | Tutor already has a booking at that exact `scheduledAt` — pick a different slot     |
 | Migration drift between dev and prod               | Run `npx prisma migrate deploy` on prod; never edit applied migrations              |
 | `JsonWebTokenError: invalid signature` after redeploy | `JWT_SECRET` changed — clients must log in again                                  |
+| Vercel `FUNCTION_INVOCATION_FAILED` / 500 on all routes | Module-load crash — usually a missing env var. Check the function logs in the Vercel dashboard for the exact stack trace |
+| Vercel build fails with `@prisma/client did not initialize` | `prisma generate` didn't run — confirm `postinstall` is present in `package.json` |
 
 ---
 
