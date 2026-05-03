@@ -114,7 +114,9 @@ Defined in `.env` (see `.env.example` for a template):
 | `DATABASE_URL`   |    ✓     | PostgreSQL connection string                         | `postgresql://user:pass@host:5432/skillbridge`     |
 | `JWT_SECRET`     |    ✓     | 64-char random string used to sign tokens            | _(generate with `openssl rand -hex 32`)_           |
 | `JWT_EXPIRES_IN` |          | Token lifetime (default `7d`)                        | `7d`                                               |
-| `FRONTEND_URL`   |    ✓     | Allowed CORS origin                                  | `http://localhost:3000`                            |
+| `FRONTEND_URL`   |    ✓     | Canonical frontend origin (always allowed by CORS)   | `http://localhost:3000`                            |
+| `ALLOWED_ORIGINS`|          | Comma-separated extra origins                        | `https://staging.example.com,https://other.app`    |
+| `ALLOWED_ORIGIN_REGEX` |    | Regex (string) matched against the request `Origin`. Use this for Vercel/Netlify preview URLs. | `^https:\/\/skillbridge-frontend-[a-z0-9-]+-afif-ahmeds-projects\.vercel\.app$` |
 | `COOKIE_DOMAIN`  |          | Cookie domain (leave empty in dev)                   | `.skillbridge.dev`                                 |
 
 > **Never commit** `.env`. Rotate `JWT_SECRET` whenever it leaks — all sessions invalidate immediately.
@@ -304,6 +306,7 @@ This repo is also deployable to Vercel — [api/index.ts](api/index.ts) wraps th
 | `JsonWebTokenError: invalid signature` after redeploy | `JWT_SECRET` changed — clients must log in again                                  |
 | Vercel `FUNCTION_INVOCATION_FAILED` / 500 on all routes | Module-load crash — usually a missing env var. Check the function logs in the Vercel dashboard for the exact stack trace |
 | Vercel build fails with `@prisma/client did not initialize` | `prisma generate` didn't run — confirm `postinstall` is present in `package.json` |
+| `Access-Control-Allow-Origin` mismatch from a Vercel preview URL | The preview URL hash changes per deploy. Set `ALLOWED_ORIGIN_REGEX` to a pattern that matches all of your project's previews instead of pinning a single `FRONTEND_URL` |
 
 ---
 

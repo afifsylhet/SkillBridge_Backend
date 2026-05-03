@@ -13,6 +13,11 @@ const EnvSchema = z.object({
   JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 characters'),
   JWT_EXPIRES_IN: z.string().default('7d'),
   FRONTEND_URL: z.string().url(),
+  // Comma-separated extra origins (e.g. "https://staging.example.com,https://localhost:3000").
+  ALLOWED_ORIGINS: z.string().optional(),
+  // Optional regex (string form) matched against the request Origin header.
+  // Useful for Vercel preview URLs, e.g. "^https://skillbridge-frontend-[a-z0-9]+-.*\\.vercel\\.app$".
+  ALLOWED_ORIGIN_REGEX: z.string().optional(),
   COOKIE_DOMAIN: z.string().optional(),
 });
 
