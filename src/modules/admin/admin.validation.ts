@@ -17,7 +17,7 @@ export const adminUserListQuerySchema = z.object({
 });
 
 export const adminBookingListQuerySchema = z.object({
-  status: z.enum(['CONFIRMED', 'COMPLETED', 'CANCELLED']).optional(),
+  status: z.enum(['PENDING', 'CONFIRMED', 'COMPLETED', 'CANCELLED']).optional(),
   page: z.coerce.number().int().min(1).optional(),
   pageSize: z.coerce.number().int().min(1).max(100).optional(),
 });

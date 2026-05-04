@@ -64,6 +64,8 @@ export const bookingService = {
       }
 
       try {
+        // Sessions start as PENDING — the tutor must explicitly confirm
+        // before the slot is locked in for the student.
         return await tx.booking.create({
           data: {
             studentId,
@@ -71,7 +73,7 @@ export const bookingService = {
             scheduledAt,
             durationMin: data.durationMin,
             notes: data.notes,
-            status: 'CONFIRMED',
+            status: 'PENDING',
           },
           include: BOOKING_INCLUDE,
         });
@@ -84,7 +86,10 @@ export const bookingService = {
     });
   },
 
-  async listForStudent(studentId: string, status?: 'CONFIRMED' | 'COMPLETED' | 'CANCELLED') {
+  async listForStudent(
+    studentId: string,
+    status?: 'PENDING' | 'CONFIRMED' | 'COMPLETED' | 'CANCELLED',
+  ) {
     return prisma.booking.findMany({
       where: { studentId, ...(status ? { status } : {}) },
       include: BOOKING_INCLUDE,
@@ -127,15 +132,72 @@ export const bookingService = {
     if (booking.studentId !== studentId) {
       throw ApiError.forbidden('Only the booking student can cancel');
     }
-    if (booking.status !== 'CONFIRMED') {
-      throw new ApiError(400, 'BAD_STATE', 'Only confirmed bookings can be cancelled');
+    if (booking.status !== 'CONFIRMED' && booking.status !== 'PENDING') {
+      throw new ApiError(400, 'BAD_STATE', 'Only pending or confirmed bookings can be cancelled');
     }
-    if (!canCancelBooking(booking.scheduledAt)) {
+    // Cutoff applies once a tutor has confirmed; pending requests can always
+    // be withdrawn by the student because they aren't holding the tutor's time yet.
+    if (booking.status === 'CONFIRMED' && !canCancelBooking(booking.scheduledAt)) {
       throw new ApiError(400, 'BAD_STATE', 'Cancellation must be at least 2 hours in advance');
     }
 
     return prisma.booking.update({
       where: { id },
+      data: { status: 'CANCELLED', cancelledAt: new Date() },
+      include: BOOKING_INCLUDE,
+    });
+  },
+
+  async confirmByTutor(tutorUserId: string, bookingId: string) {
+    const profile = await prisma.tutorProfile.findUnique({
+      where: { userId: tutorUserId },
+      select: { id: true },
+    });
+    if (!profile) throw ApiError.notFound('Tutor profile not found');
+
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId },
+      select: { tutorProfileId: true, status: true, scheduledAt: true },
+    });
+    if (!booking) throw ApiError.notFound('Booking not found');
+    if (booking.tutorProfileId !== profile.id) {
+      throw ApiError.forbidden('Cannot modify other tutors\' bookings');
+    }
+    if (booking.status !== 'PENDING') {
+      throw new ApiError(400, 'BAD_STATE', 'Only pending bookings can be confirmed');
+    }
+    if (booking.scheduledAt.getTime() <= Date.now()) {
+      throw new ApiError(400, 'BAD_STATE', 'Cannot confirm a session that has already started');
+    }
+
+    return prisma.booking.update({
+      where: { id: bookingId },
+      data: { status: 'CONFIRMED', confirmedAt: new Date() },
+      include: BOOKING_INCLUDE,
+    });
+  },
+
+  async declineByTutor(tutorUserId: string, bookingId: string) {
+    const profile = await prisma.tutorProfile.findUnique({
+      where: { userId: tutorUserId },
+      select: { id: true },
+    });
+    if (!profile) throw ApiError.notFound('Tutor profile not found');
+
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId },
+      select: { tutorProfileId: true, status: true },
+    });
+    if (!booking) throw ApiError.notFound('Booking not found');
+    if (booking.tutorProfileId !== profile.id) {
+      throw ApiError.forbidden('Cannot modify other tutors\' bookings');
+    }
+    if (booking.status !== 'PENDING') {
+      throw new ApiError(400, 'BAD_STATE', 'Only pending bookings can be declined');
+    }
+
+    return prisma.booking.update({
+      where: { id: bookingId },
       data: { status: 'CANCELLED', cancelledAt: new Date() },
       include: BOOKING_INCLUDE,
     });

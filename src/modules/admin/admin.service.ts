@@ -8,12 +8,13 @@ const DEFAULT_PAGE_SIZE = 20;
 
 export const adminService = {
   async getStats() {
-    const [totalUsers, students, tutors, admins, confirmed, completed, cancelled] =
+    const [totalUsers, students, tutors, admins, pending, confirmed, completed, cancelled] =
       await Promise.all([
         prisma.user.count(),
         prisma.user.count({ where: { role: 'STUDENT' } }),
         prisma.user.count({ where: { role: 'TUTOR' } }),
         prisma.user.count({ where: { role: 'ADMIN' } }),
+        prisma.booking.count({ where: { status: 'PENDING' } }),
         prisma.booking.count({ where: { status: 'CONFIRMED' } }),
         prisma.booking.count({ where: { status: 'COMPLETED' } }),
         prisma.booking.count({ where: { status: 'CANCELLED' } }),
@@ -36,7 +37,7 @@ export const adminService = {
 
     return {
       totals: { users: totalUsers, students, tutors, admins },
-      bookings: { confirmed, completed, cancelled },
+      bookings: { pending, confirmed, completed, cancelled },
       revenueProxy: Math.round(revenueProxy),
       topCategories: topCategories.map((c) => ({
         name: c.name,

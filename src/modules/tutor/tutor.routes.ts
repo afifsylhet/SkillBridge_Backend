@@ -18,4 +18,6 @@ tutorSelfRoutes.put('/profile', validate(profileSchema), tutorController.updateP
 tutorSelfRoutes.get('/availability', tutorController.getAvailabilityForCurrentUser);
 tutorSelfRoutes.put('/availability', validate(availabilitySchema), tutorController.setAvailabilityForCurrentUser);
 tutorSelfRoutes.get('/sessions', tutorController.listSessionsForCurrentUser);
+tutorSelfRoutes.patch('/sessions/:id/confirm', tutorController.confirmSessionForCurrentUser);
+tutorSelfRoutes.patch('/sessions/:id/decline', tutorController.declineSessionForCurrentUser);
 tutorSelfRoutes.patch('/sessions/:id/complete', tutorController.completeSessionForCurrentUser);

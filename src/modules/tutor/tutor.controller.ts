@@ -3,6 +3,7 @@ import type { Request, Response } from 'express';
 import { catchAsync } from '../../utils/catchAsync.js';
 import { ApiError } from '../../utils/ApiError.js';
 import { tutorService } from './tutor.service.js';
+import { bookingService } from '../booking/booking.service.js';
 import { tutorListQuerySchema } from './tutor.validation.js';
 import type { ProfileInput, AvailabilityInput } from './tutor.validation.js';
 
@@ -55,6 +56,18 @@ export const tutorController = {
       req.user.id,
       req.params.id as string,
     );
+    res.json({ success: true, data });
+  }),
+
+  confirmSessionForCurrentUser: catchAsync(async (req: Request, res: Response) => {
+    if (!req.user) throw ApiError.unauthorized();
+    const data = await bookingService.confirmByTutor(req.user.id, req.params.id as string);
+    res.json({ success: true, data });
+  }),
+
+  declineSessionForCurrentUser: catchAsync(async (req: Request, res: Response) => {
+    if (!req.user) throw ApiError.unauthorized();
+    const data = await bookingService.declineByTutor(req.user.id, req.params.id as string);
     res.json({ success: true, data });
   }),
 };

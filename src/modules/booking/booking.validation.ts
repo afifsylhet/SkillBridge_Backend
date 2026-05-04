@@ -21,7 +21,7 @@ export const bookingCreateSchema = z.object({
 });
 
 export const bookingListQuerySchema = z.object({
-  status: z.enum(['CONFIRMED', 'COMPLETED', 'CANCELLED']).optional(),
+  status: z.enum(['PENDING', 'CONFIRMED', 'COMPLETED', 'CANCELLED']).optional(),
 });
 
 export type BookingCreateInput = z.infer<typeof bookingCreateSchema>;
