@@ -2,9 +2,9 @@
 import { prisma } from '../src/config/prisma.js';
 import bcrypt from 'bcrypt';
 
-const ADMIN_EMAIL = 'admin@skillbridge.dev';
-const ADMIN_PASSWORD = 'Admin@12345';
-const STUDENT_EMAIL = 'student@skillbridge.dev';
+const ADMIN_EMAIL = 'admin@skillbridge.com';
+const ADMIN_PASSWORD = 'admin123';
+const STUDENT_EMAIL = 'student@skillbridge.com';
 const STUDENT_PASSWORD = 'Student@123';
 const TUTOR_PASSWORD = 'Tutor@123';
 
@@ -22,7 +22,7 @@ const CATEGORIES = [
 const TUTOR_PROFILES = [
   {
     name: 'Ada Lovelace',
-    email: 'tutor1@skillbridge.dev',
+    email: 'tutor1@skillbridge.com',
     headline: 'Senior Web Engineer · React + Node',
     bio: 'I help students master modern full-stack development with React, Node, and Postgres. Friendly, structured, and project-driven.',
     hourlyRate: 45,
@@ -31,7 +31,7 @@ const TUTOR_PROFILES = [
   },
   {
     name: 'Linus Pauling',
-    email: 'tutor2@skillbridge.dev',
+    email: 'tutor2@skillbridge.com',
     headline: 'Data Scientist · Python and SQL',
     bio: 'Former research engineer. I teach Python, SQL, and applied statistics with hands-on Jupyter sessions.',
     hourlyRate: 55,
@@ -40,7 +40,7 @@ const TUTOR_PROFILES = [
   },
   {
     name: 'Grace Hopper',
-    email: 'tutor3@skillbridge.dev',
+    email: 'tutor3@skillbridge.com',
     headline: 'Product Designer · UX + UI',
     bio: 'I coach designers from portfolio review to advanced Figma workflows and design systems.',
     hourlyRate: 50,
@@ -49,7 +49,7 @@ const TUTOR_PROFILES = [
   },
   {
     name: 'Rosa Iglesias',
-    email: 'tutor4@skillbridge.dev',
+    email: 'tutor4@skillbridge.com',
     headline: 'Spanish Coach · Conversational and Business',
     bio: 'Native Spanish speaker. I make grammar painless and conversation natural with role-plays.',
     hourlyRate: 30,
@@ -58,7 +58,7 @@ const TUTOR_PROFILES = [
   },
   {
     name: 'Kenji Tanaka',
-    email: 'tutor5@skillbridge.dev',
+    email: 'tutor5@skillbridge.com',
     headline: 'Pianist · Theory and Performance',
     bio: 'Conservatory-trained pianist. I teach jazz, classical theory, and improv from beginner to advanced.',
     hourlyRate: 40,
@@ -67,7 +67,7 @@ const TUTOR_PROFILES = [
   },
   {
     name: 'Priya Nair',
-    email: 'tutor6@skillbridge.dev',
+    email: 'tutor6@skillbridge.com',
     headline: 'ML Engineer · Deep Learning',
     bio: 'I help students build real ML projects with PyTorch and structured curriculums for interview prep.',
     hourlyRate: 60,
@@ -266,7 +266,7 @@ async function main() {
   console.log('--------------------------------');
   console.log(`Admin:   ${ADMIN_EMAIL} / ${ADMIN_PASSWORD}`);
   console.log(`Student: ${STUDENT_EMAIL} / ${STUDENT_PASSWORD}`);
-  console.log(`Tutors:  tutor{1-6}@skillbridge.dev / ${TUTOR_PASSWORD}`);
+  console.log(`Tutors:  tutor{1-6}@skillbridge.com / ${TUTOR_PASSWORD}`);
 }
 
 main()
